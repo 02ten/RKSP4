@@ -1,40 +1,46 @@
 package com.example.server.controller;
 
+import com.example.server.CustomException;
 import com.example.server.model.Game;
 import com.example.server.repository.GameRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-@Controller
+import org.springframework.web.bind.annotation.*;
+@RestController
 public class GameController {
-    @Autowired
-    private GameRepository gameRepository;
-    @MessageMapping("getGame")
-    public Mono<Game> getGame(Long id){
-        return Mono.justOrEmpty(gameRepository.findById(id));
+    private final GameRepository gameRepository;
+
+    public GameController(GameRepository gameRepository) {
+        this.gameRepository = gameRepository;
     }
-    @MessageMapping("addGame")
-    public Mono<Game> addGame(Game game){
-        return Mono.justOrEmpty(gameRepository.save(game));
+    @GetMapping("/getGame/{id}")
+    public Mono<ResponseEntity<Game>> getGame(@PathVariable Long id){
+        return gameRepository.findById(id)
+                .map(ResponseEntity::ok).defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+    @PostMapping("/addGame")
+    public Mono<Game> addGame(@RequestBody Game game){
+        System.out.println(game.toString());
+        return gameRepository.save(game).
+                onErrorResume(e-> Mono.error(new CustomException("Invalid data", e)));
     }
 
-    @MessageMapping("getAllGames")
+    @GetMapping("/getAllGames")
     public Flux<Game> getAllGames(){
-        return Flux.fromIterable(gameRepository.findAll());
+        return gameRepository.findAll().onBackpressureLatest();
     }
 
-    @MessageMapping("deleteGame")
-    public Mono<Void> deleteGame(Long id){
-        gameRepository.deleteById(id);
-        return Mono.empty();
+    @DeleteMapping("/deleteGame/{id}")
+    public Mono<Void> deleteGame(@PathVariable Long id){
+        return gameRepository.deleteById(id);
     }
 
-    @MessageMapping("gameChannel")
-    public Flux<Game> gameChanel(Flux<Game> gameFlux){
-        return gameFlux.flatMap(game -> Mono.fromCallable(() -> gameRepository.save(game)))
-                .collectList().flatMapMany(Flux::fromIterable);
+    @GetMapping("/filtered")
+    public Flux<Game> getGamesByGenre(@RequestParam String genre){
+        return gameRepository.findAll()
+                .filter(game -> game.getGenre().equals(genre));
     }
 }

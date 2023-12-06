@@ -1,7 +1,7 @@
 package com.example.server.repository;
 
 import com.example.server.model.Game;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 
-public interface GameRepository extends JpaRepository<Game, Long> {
+public interface GameRepository extends ReactiveCrudRepository<Game, Long> {
 }
